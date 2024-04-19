@@ -26,13 +26,15 @@ public class AgenteAStar extends AbstractPlayer {
 	Vector2d portal;
 
 	PriorityQueue<NodoA> abiertos; // Nodos abiertos
-	HashMap<Coordenadas, Integer> cerrados; // Nodos ya visitados
+	HashMap<CoordenadasLLave, Integer> cerrados; // Nodos ya visitados
 	Stack<Types.ACTIONS> ruta; // Pila con la ruta, siempre sacamos la accion mas longeva
 	boolean tengoRuta; // 0 si no hay ruta planeada, 1 caso contrario
-	ArrayList<Observation>[][] mygrid; // Grid
 	NodoA meta;
-	ArrayList<Integer>[][] obstaculos; // Matriz de obstaculos: 1 para obstaculo, 0 si no lo es
+	HashSet<Coordenadas> obstaculos;
 	Integer nNodos;
+	ArrayList<Observation>[][] mygrid;
+	ArrayList<Observation> muros, trampas;
+	
 
 	/**
 	 * initialize all variables for the agent
@@ -55,10 +57,37 @@ public class AgenteAStar extends AbstractPlayer {
 
 		ruta = new Stack<>();
 		abiertos = new PriorityQueue<NodoA>();
-		cerrados = new HashMap<Coordenadas, Integer>();
+		cerrados = new HashMap<CoordenadasLLave, Integer>();
 		tengoRuta = false;
+		
 		mygrid = stateObs.getObservationGrid();
+		muros = new ArrayList<Observation>();
+		trampas = new ArrayList<Observation>();
+		if(stateObs.getImmovablePositions() != null) {
+			if( stateObs.getImmovablePositions().length > 0)
+				muros = stateObs.getImmovablePositions()[0];
+			if( stateObs.getImmovablePositions().length > 1)
+				trampas = stateObs.getImmovablePositions()[1];
+		}
+		obstaculos = new HashSet<Coordenadas>();
+		
+		//Guardamos todos los obstáculos, tanto muros como trampas en un HashSet, para hacer eficiente su búsqueda
+		if(muros.size() > 0) {
+			for ( int i = 0; i < muros.size() ; i++) {
+				Vector2d posicion = muros.get(i).position;
+				Coordenadas pos_aux = new Coordenadas(Math.floor(posicion.x/fescala.x), Math.floor(posicion.y/fescala.y));
+				obstaculos.add(pos_aux);
+			}
+		}
+		if(trampas.size() > 0) {
+			for ( int i = 0; i < trampas.size() ; i++) {
+				Vector2d posicion = trampas.get(i).position;
+				Coordenadas pos_aux = new Coordenadas(Math.floor(posicion.x/fescala.x), Math.floor(posicion.y/fescala.y));
+				obstaculos.add(pos_aux);
+			}
+		}
 		nNodos = 0;
+
 	}
 
 	/**
@@ -68,32 +97,30 @@ public class AgenteAStar extends AbstractPlayer {
 	 * @param elapsedTimer Timer when the action returned is due.
 	 * @return best ACTION to arrive faster to the closest portal
 	 */
+	@Override
 	public ACTIONS act(StateObservation stateObs, ElapsedCpuTimer elapsedTimer) {
 
 		if (!tengoRuta) {
 
 			long tInicio = System.nanoTime();
 
-			Astar(stateObs);
+			AStar(stateObs);
 
 			long tFin = System.nanoTime();
 
 			long tiempoTotalms = (tFin - tInicio) / 1000000;
 
-			//System.out.print(tiempoTotalms);
-
-			return Types.ACTIONS.ACTION_NIL;
-		} else {
+			System.out.print("\nRuntime acumulado :  ");System.out.print(tiempoTotalms);
+			
 			if (ruta.isEmpty()) {
-				// He encontrado la meta, guardando sus mejores padres
+				//He encontrado la meta, guardando sus mejores padres
 				NodoA aux = meta;
 				ACTIONS anterior = ACTIONS.ACTION_NIL; // Ultima accion la inicializo a NIL
-
+				
 				ruta.push(meta.getAccion()); // Hago push de la ultima accion, justo la que me lleva a la meta, pues en
-												// Dijkstra no la meto
+				// Dijkstra no la meto
 
-				// Voy recorriendo de última a primera las acciones de los nodos, hasta dar con
-				// el padre null (nodo anterior al inicial)
+				//Voy recorriendo de última a primera las acciones de los nodos, hasta dar con el padre null (nodo anterior al inicial)
 				while (aux != null) {
 
 					if (aux.getPadre() != null) {
@@ -112,25 +139,31 @@ public class AgenteAStar extends AbstractPlayer {
 					// Voy un nodo hacia atrás
 					aux = aux.getPadre();
 				}
-
+				
 				if (ruta.peek() == ACTIONS.ACTION_RIGHT) { // Si la primera accion coincide con la orientación inicial
 					ruta.pop(); // hacemos pop(), porque si no va a añadir una de más
 				}
-				System.out.print(ruta.size());
+				
+				System.out.print("\nTamaño de la ruta :  ");System.out.print(ruta.size());
+				System.out.print("\nNodos expandidos :  ");System.out.print(nNodos);
+				System.out.print("\n\n");
 			}
+
+			return ruta.pop();
+		} else {
 			return ruta.pop();
 		}
 
 	}
 
 	// Método que implementa A*
-	private void Astar(StateObservation stateObs) {
+	private void AStar(StateObservation stateObs) {
 
 		// Inicialmente calculamos la posicion del avatar, creamos el nodo padre, que es
 		// la casilla y posicion de salida (con
 		// coste 0) y lo añadimos a los nodos abiertos
-		Coordenadas pos = new Coordenadas(stateObs.getAvatarPosition().x / fescala.x,
-				stateObs.getAvatarPosition().y / fescala.y);
+		CoordenadasLLave pos = new CoordenadasLLave	(stateObs.getAvatarPosition().x / fescala.x,
+				stateObs.getAvatarPosition().y / fescala.y, orientationToAction(stateObs.getAvatarOrientation()));
 		NodoA inicial = new NodoA(null, orientationToAction(stateObs.getAvatarOrientation()), pos, 0,
 				dMan(pos, portal));
 		NodoA expandidos[];
@@ -154,12 +187,13 @@ public class AgenteAStar extends AbstractPlayer {
 				for (int i = 0; i < expandidos.length; i++) {
 					sucesor = expandidos[i];
 
-					if (puedoMover(sucesor.getPos())) {
-						if (cerrados.containsKey(sucesor.getPos()) && mejorCaminoA(sucesor, 0)) // Aqui nunca va a
+					if (puedoMover(sucesor.getPos().getCoordenadas())) {
+						if (cerrados.containsKey(sucesor.getPos()) && mejorCaminoA(sucesor, 0)) { // Aqui nunca va a
 																								// entrar porque nuestra
 																								// heurística es
-																								// monótona
-							actualizarCerrados(sucesor);
+							actualizarCerrados(sucesor);										// monótona
+							
+						}
 						else if (!cerrados.containsKey(sucesor.getPos()) && !abiertos.contains(sucesor))
 							abiertos.add(sucesor);
 						else if (abiertos.contains(sucesor) && mejorCaminoA(sucesor, 1))
@@ -226,25 +260,20 @@ public class AgenteAStar extends AbstractPlayer {
 	// Método para comprobar si una casilla es accesible por el avatar. Comprueba
 	// 1. Que la casilla esté dentro de las dimensiones del grid
 	// 2. Que la casilla no sea ni muro ni trampa
-	private boolean puedoMover(Vector2d casilla) {
+	private boolean puedoMover(Coordenadas casilla) {
 
 		boolean obstaculo = false, esta_dentro = false;
 
 		esta_dentro = casilla.x >= 0 && casilla.x < (mygrid.length) && casilla.y >= 0 && casilla.y < (mygrid[0].length);
 
-		int i = 0;
-
-		while (i < mygrid[(int) casilla.x][(int) casilla.y].size() && !obstaculo) {
-			if (mygrid[(int) casilla.x][(int) casilla.y].get(i).itype == 0
-					|| mygrid[(int) casilla.x][(int) casilla.y].get(i).itype == 8)
-				obstaculo = true;
-			i++;
+		if (obstaculos.contains(casilla)) {
+			obstaculo = true;
 		}
 
 		return !obstaculo && esta_dentro;
 	}
 
-	public int dMan(Coordenadas nodo, Vector2d meta) {
+	public int dMan(CoordenadasLLave nodo, Vector2d meta) {
 		return (int) (Math.abs(nodo.x - meta.x) + Math.abs(nodo.y - meta.y));
 	}
 

@@ -20,7 +20,7 @@ import ontology.Types.ACTIONS;
 import tools.ElapsedCpuTimer;
 import tools.Vector2d;
 
-public class AgenteRTAStar extends AbstractPlayer {
+public class AgenteLRTAStar extends AbstractPlayer {
 
 	Vector2d fescala;
 	Vector2d portal;
@@ -43,7 +43,7 @@ public class AgenteRTAStar extends AbstractPlayer {
 	 * @param stateObs     Observation of the current state.
 	 * @param elapsedTimer Timer when the action returned is due.
 	 */
-	public AgenteRTAStar(StateObservation stateObs, ElapsedCpuTimer elapsedTimer) {
+	public AgenteLRTAStar(StateObservation stateObs, ElapsedCpuTimer elapsedTimer) {
 		// Calculamos el factor de escala entre mundos (pixeles -> grid)
 		fescala = new Vector2d(stateObs.getWorldDimension().width / stateObs.getObservationGrid().length,
 				stateObs.getWorldDimension().height / stateObs.getObservationGrid()[0].length);
@@ -57,23 +57,17 @@ public class AgenteRTAStar extends AbstractPlayer {
 		portal.y = Math.floor(portal.y / fescala.y);
 
 		accion = ACTIONS.ACTION_RIGHT;
-		abiertos = new PriorityQueue<NodoA>();
 		visitados = new HashMap<Coordenadas, Integer>();
-		tengoRuta = false;
 		mygrid = stateObs.getObservationGrid();
 		girando = false;
-		termino = false;
 		nNodos = 0;
+		termino = false;
 		tiempo = 0;
 		
-		muros = new ArrayList<Observation>();
+		muros = stateObs.getImmovablePositions()[0];
 		trampas = new ArrayList<Observation>();
-		if( stateObs.getImmovablePositions().length > 0)
-			muros = stateObs.getImmovablePositions()[0];
-		
 		if( stateObs.getImmovablePositions().length > 1)
 			trampas = stateObs.getImmovablePositions()[1];
-		
 		obstaculos = new HashSet<Coordenadas>();
 		
 		if(muros.size() > 0) {
@@ -106,13 +100,13 @@ public class AgenteRTAStar extends AbstractPlayer {
 				actualizarMapa(stateObs);
 			}
 		}
-		
+				
 		if(girando) {
-			girando = false;
 			nNodos++;
+			girando = false;
 			return accion;
 		}
-			
+		
 		long tInicio = System.nanoTime();
 		
 		RTAStar(stateObs);
@@ -127,14 +121,14 @@ public class AgenteRTAStar extends AbstractPlayer {
 			System.out.print("\nRuntime acumulado :  ");System.out.print(tiempo);
 			System.out.print("\nTamaño de la ruta :  ");System.out.print(nNodos);
 			System.out.print("\nNodos expandidos :  ");System.out.print(nNodos);
-			System.out.print("\n");
+			System.out.print("\n\n");
 		}
 
 		return accion;
 
 	}
 
-	// Método que implementa A*
+	// Método que implementa
 	private void RTAStar(StateObservation stateObs) {
 
 		// Inicialmente calculamos la posicion del avatar
@@ -143,13 +137,11 @@ public class AgenteRTAStar extends AbstractPlayer {
 		NodoRTA actual;
 		
 		if(!visitados.containsKey(pos)) {
-			actual = new NodoRTA( orientationToAction(stateObs.getAvatarOrientation()), pos, 0, dMan(pos, portal));
+			actual = new NodoRTA( orientationToAction(stateObs.getAvatarOrientation()), pos, 0,
+					dMan(pos, portal));
 		}else {
 			actual = new NodoRTA( orientationToAction(stateObs.getAvatarOrientation()), pos, 0, visitados.get(pos));
 		}
-		
-		//System.out.print(" \n \n Accion actual ");System.out.print(accion);
-		//System.out.print("\n");
 		
 		
 		//Creamos el espacio de búsqueda, creando los 4 vecinos y añadiendo solo si no son obstaculo
@@ -162,14 +154,11 @@ public class AgenteRTAStar extends AbstractPlayer {
 					expandidos[i].setG(2);
 				}
 				esp_busqueda.add(expandidos[i]);
-				//System.out.print("\n  - Accion expandida:");System.out.print(expandidos[i].getAccion());System.out.print("  G: ");System.out.print(expandidos[i].getG());System.out.print("  H: ");System.out.print(expandidos[i].getH());
-				//System.out.print("\n");
 			}
 		}
 		
 		//Cogemos el mejor vecino
 		accion = esp_busqueda.peek().getAccion();
-		//System.out.print("\n     - ACCION elegida: ");System.out.print(accion);System.out.print("\n");
 		if(esp_busqueda.peek().getPos().x == portal.x  && esp_busqueda.peek().getPos().y == portal.y) {
 			termino = true;
 		}
@@ -179,7 +168,6 @@ public class AgenteRTAStar extends AbstractPlayer {
 		actual.setH(nueva_h);
 		
 		//Añadimos a visitados el nodo actual, con su nueva H
-		//System.out.print("\n Meto posicion ");System.out.print(actual.getPos());System.out.print(" con nueva H: ");System.out.print(nueva_h);System.out.print("\n");
 		visitados.put(actual.getPos(), actual.getH());
 		nNodos++;
 		
@@ -209,14 +197,7 @@ public class AgenteRTAStar extends AbstractPlayer {
 	public int setNewH(NodoRTA actual, PriorityQueue<NodoRTA> vecinos) {
 		NodoRTA vecino2;
 		
-		if(vecinos.size() > 1) {
-			 vecinos.poll();	//cogemos el segundo mínimo
-			 vecino2 = vecinos.peek();
-		}else if (vecinos.size() == 1){
-			vecino2 = vecinos.poll();	//en caso de que solo haya un vecino cogemos como segundo minimo el mismo
-		}else {						
-			return (int)(actual.getH());	//en caso de que no haya vecinos nos quedamos con la misma F (aqui nunca se entra)
-		}
+		vecino2 = vecinos.poll(); //Cogemos el (primer) mínimo
 		
 		return Math.max((int)(actual.getH()), (int)(vecino2.getF()));
 	}

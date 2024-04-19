@@ -101,6 +101,7 @@ class NodoRTA implements Comparable<NodoRTA> {
     }
     public void setH(Integer h) {
     	this.h = h;
+    	this.f = g+h;
     }
     
     public void setG(Integer g) {
@@ -119,6 +120,9 @@ class NodoRTA implements Comparable<NodoRTA> {
 
     @Override
     public int compareTo(NodoRTA otroNodo) {
+    	if(this.getF() == otroNodo.getF()) {
+    		return (this.getG() - otroNodo.getG());
+    	}
         // Comparamos las dos heurísticas de los nodos
         return (this.getF() - otroNodo.getF());
     }

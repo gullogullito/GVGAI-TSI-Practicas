@@ -29,18 +29,19 @@ public class Test {
 		String agenteDijkstra = "tracks.singlePlayer.evaluacion.src_PEREZ_CABEZA_JULIO.AgenteDijkstra";
 		String agenteAStar = "tracks.singlePlayer.evaluacion.src_PEREZ_CABEZA_JULIO.AgenteAStar";
 		String agenteRTAStar = "tracks.singlePlayer.evaluacion.src_PEREZ_CABEZA_JULIO.AgenteRTAStar";
+		String agenteLRTAStar = "tracks.singlePlayer.evaluacion.src_PEREZ_CABEZA_JULIO.AgenteLRTAStar";
 
 		//Load available games
 		String spGamesCollection =  "examples/all_games_sp.csv";
 		String[][] games = Utils.readGames(spGamesCollection);
 
 		//Game settings
-		boolean visuals = true;
+		boolean visuals =true;
 		int seed = new Random().nextInt();
 
 		// Game and level to play
 		int gameIdx = 122;
-		int levelIdx =2; // level names from 0 to 4 (game_lvlN.txt).
+		int levelIdx = 4; // level names from 0 to 4 (game_lvlN.txt).
 		String gameName = games[gameIdx][1];
 		String game = games[gameIdx][0];
 		String level1 = game.replace(gameName, gameName + "_lvl" + levelIdx);
@@ -54,7 +55,7 @@ public class Test {
 		//ArcadeMachine.playOneGame(game, level1, recordActionsFile, seed);
 
 		// 2. This plays a game in a level by the controller.
-		ArcadeMachine.runOneGame(game, level1, visuals, agenteRTAStar, recordActionsFile, seed, 0);
+		ArcadeMachine.runOneGame(game, level1, visuals, agenteAStar, recordActionsFile, seed, 0);
 
 
 		// 3. This replays a game from an action file previously recorded
